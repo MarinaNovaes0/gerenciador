@@ -6,7 +6,16 @@ def main(page: ft.Page):
     page.title = "Cadastro de Tarefa"
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER  # Ajusta o alinhamento horizontal
-    page.bgcolor = ft.Colors.BROWN_900
+    page.bgcolor = None  # Remove a cor de fundo
+    page.clean()
+    page.padding = 0  # Remove qualquer padding da página
+    page.spacing = 0  # Remove espaçamento entre os elementos
+    background_image = ft.Image(
+        src="https://static.wikia.nocookie.net/minecraft_gamepedia/images/f/f2/Dirt_background_BE1.png/revision/latest?cb=20210820093527",  # URL da imagem
+        fit=ft.ImageFit.COVER,
+        expand=True  # Faz a imagem preencher toda a tela
+    )
+    page.add(ft.Stack([background_image]))  # Adiciona a imagem de fundo
 
     # Configuração global da fonte
     page.fonts = {
