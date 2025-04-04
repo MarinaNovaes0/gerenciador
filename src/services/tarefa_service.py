@@ -2,7 +2,7 @@ from model.tarefa_model import Tarefa
 from sqlalchemy.exc import SQLAlchemyError
 from connection import Session
 
-def cadastrar_tarefa(descricao: str):
+def cadastrar_tarefa(descricao: str, dt: str):
     session = Session()
     try:
         # Normaliza a descrição para minúsculas
@@ -13,7 +13,11 @@ def cadastrar_tarefa(descricao: str):
             return "Tarefa já existe."
 
         # Criar uma nova instância do modelo Tarefa com os dados fornecidos
-        nova_tarefa = Tarefa(descricao=descricao_normalizada)
+        nova_tarefa = Tarefa(
+            descricao=descricao_normalizada,
+            vencimento=False,  # Sempre adiciona como 0 (False)
+            dt=dt  # Data fornecida
+        )
         
         # Adicionar a tarefa na sessão
         session.add(nova_tarefa)

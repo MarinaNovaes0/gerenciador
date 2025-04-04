@@ -1,3 +1,4 @@
+import datetime
 import flet as ft
 from view.tarefa_view import TarefaView
 from services.tarefa_service import cadastrar_tarefa  # Adicionado
@@ -60,6 +61,34 @@ class Home:
             label_style=ft.TextStyle(color="white")  # Define a cor do texto do rótulo como branco
         )
 
+        # Função para lidar com a mudança de data
+        def handle_date_change(e):
+            selected_date.value = f"Data selecionada: {e.control.value.strftime('%d/%m/%Y')}"
+            selected_date.visible = True  # Torna o texto visível após a seleção
+            selected_date.update()
+
+        # Função para lidar com o fechamento do seletor de data
+        def handle_date_dismissal(e):
+            selected_date.visible = False  # Oculta o texto se nenhuma data for selecionada
+            selected_date.update()
+
+        # Botão para abrir o seletor de data
+        date_picker_button = ft.ElevatedButton(
+            "Selecionar Data",
+            icon=ft.Icons.CALENDAR_MONTH,
+            on_click=lambda e: self.page.open(
+                ft.DatePicker(
+                    first_date=datetime.datetime.now(),  # Começa no dia vigente
+                    last_date=datetime.datetime(year=2026, month=12, day=31),  # Limite no final de 2026
+                    on_change=handle_date_change,
+                    on_dismiss=handle_date_dismissal
+                )
+            ),
+        )
+
+        # Texto para exibir a data selecionada (inicialmente invisível)
+        selected_date = ft.Text(value="", color="white", visible=False)
+
         # Instância de TarefaView
         tarefa_view = TarefaView(self.page)
         
@@ -80,7 +109,7 @@ class Home:
                 alignment=ft.MainAxisAlignment.CENTER,
                 spacing=5
             ),
-            on_click=lambda e: self._on_cadastrar_click(e, descricao_input, result_text, error_text),
+            on_click=lambda e: self._on_cadastrar_click(e, descricao_input, selected_date, result_text, error_text),
             bgcolor="transparent",  # Torna o botão transparente para usar o fundo do container
             color="white",
             elevation=0  # Remove a elevação para alinhar com o container
@@ -90,7 +119,7 @@ class Home:
 
         content_container = ft.Container(
             content=ft.Column(
-                [descricao_input, add_button, result_text, error_text],
+                [descricao_input, date_picker_button, selected_date, add_button, result_text, error_text],  # Adicionado date_picker_button e selected_date
                 alignment=ft.MainAxisAlignment.CENTER,  # Centraliza os elementos verticalmente
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER  # Centraliza os elementos horizontalmente
             ),
@@ -108,24 +137,43 @@ class Home:
             expand=True  # Faz o Stack preencher toda a tela
         )
 
-    def _on_cadastrar_click(self, e, descricao_input, result_text, error_text):
+    def _on_cadastrar_click(self, e, descricao_input, selected_date, result_text, error_text):
         """Função chamada ao clicar no botão de cadastro"""
         descricao = descricao_input.value.strip()
+        data = selected_date.value.replace("Data selecionada: ", "").strip()
+
         if not descricao:
             error_text.value = "O campo de descrição não pode estar vazio."
             error_text.update()
             return
 
-        resultado = cadastrar_tarefa(descricao)
+        if not data:
+            error_text.value = "Por favor, selecione uma data válida."
+            error_text.update()
+            return
+
+        # Converte a data para o formato aaaa-mm-dd
+        try:
+            data_formatada = datetime.datetime.strptime(data, "%d/%m/%Y").strftime("%Y-%m-%d")
+        except ValueError:
+            error_text.value = "Formato de data inválido."
+            error_text.update()
+            return
+
+        resultado = cadastrar_tarefa(descricao, data_formatada)  # Passa a descrição e a data formatada
         if isinstance(resultado, str) and resultado == "Tarefa já existe.":
             error_text.value = "Erro: Tarefa já cadastrada."
         elif resultado:
             result_text.value = "Tarefa cadastrada com sucesso!"
             descricao_input.value = ""  # Limpa o campo de entrada
+            selected_date.value = ""  # Reseta a data
+            selected_date.visible = False  # Oculta o texto da data
         else:
             error_text.value = "Erro ao cadastrar a tarefa."
 
         # Atualiza os textos na tela
         result_text.update()
         error_text.update()
+        descricao_input.update()
+        selected_date.update()
 

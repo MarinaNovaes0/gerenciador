@@ -2,6 +2,7 @@ import flet as ft
 from services.tarefa_service import cadastrar_tarefa, excluir_tarefa, editar_tarefa
 from connection import Session
 from model.tarefa_model import Tarefa
+import datetime
 
 class TarefaView:
     def __init__(self, page: ft.Page):
@@ -115,17 +116,45 @@ class TarefaView:
                     tarefa_container.bgcolor = "#5A5A5A" if e.control.value else "#6E6E6E"
                     tarefa_container.update()
 
+                # Converte a data para datetime.date se necessário
+                if isinstance(tarefa.dt, str):
+                    try:
+                        tarefa.dt = datetime.datetime.strptime(tarefa.dt, "%Y-%m-%d").date()
+                    except ValueError:
+                        tarefa.dt = None
+
                 # Container da tarefa centralizado
                 tarefa_container = ft.Container(
                     content=ft.Row(
                         [
                             ft.Container(
-                                content=ft.Text(f"{tarefa.descricao}", size=14, text_align="center", color="white"),
+                                content=ft.Text(
+                                    f"{tarefa.descricao}",
+                                    size=14,
+                                    text_align="start",  # Alinha o texto à esquerda
+                                    color="white",
+                                    max_lines=2,  # Permite até 2 linhas para a descrição
+                                    overflow="ellipsis",  # Adiciona reticências se o texto for muito longo
+                                    width=100  # Ajusta a largura da descrição
+                                ),
                                 on_click=lambda e, t=tarefa: self.abrir_edicao_tarefa(e, t),
-                                alignment=ft.alignment.center
+                                alignment=ft.alignment.center_left,  # Move o texto mais para a esquerda
+                                padding=ft.padding.only(left=1)  # Adiciona um pequeno padding à esquerda
                             ),
+                            ft.Container(
+                                content=ft.Text(
+                                    f"{tarefa.dt.strftime('%d/%m/%Y') if tarefa.dt else 'Sem prazo'}",
+                                    size=14,
+                                    text_align="center",  # Centraliza o texto
+                                    color="white",
+                                    no_wrap=True  # Garante que a data não quebre a linha
+                                ),
+                                on_click=lambda e, t=tarefa: self.abrir_edicao_data(e, t),  # Adiciona evento para abrir o calendário
+                                alignment=ft.alignment.center,  # Centraliza o campo da data
+                                width=120  # Reduz a largura fixa para o prazo
+                            )
                         ],
-                        alignment=ft.MainAxisAlignment.CENTER
+                        alignment=ft.MainAxisAlignment.SPACE_AROUND  # Reduz o espaço entre os itens
                     ),
                     padding=ft.padding.all(5),
                     bgcolor="#6E6E6E",
@@ -133,28 +162,28 @@ class TarefaView:
                     border_radius=ft.border_radius.all(5),
                     shadow=ft.BoxShadow(blur_radius=5, color="black", spread_radius=1),
                     alignment=ft.alignment.center,
-                    width=280
+                    width=360  # Ajusta a largura total da caixa
                 )
 
                 # Linha da tarefa centralizada
                 tarefa_row = ft.Row(
                     [
-                        tarefa_container,
                         ft.Checkbox(
                             value=False,
                             data=tarefa.id,
                             fill_color="#5A5A5A",
                             on_change=lambda e, tc=tarefa_container: on_checkbox_change(e, tc)
-                        )
+                        ),
+                        tarefa_container
                     ],
-                    alignment=ft.MainAxisAlignment.CENTER
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN  # Ajusta o alinhamento para exibir a checkbox
                 )
                 
                 # Container para centralizar a linha da tarefa
                 centered_row = ft.Container(
                     content=tarefa_row,
                     alignment=ft.alignment.center,
-                    padding=ft.padding.symmetric(horizontal=20)
+                    padding=ft.padding.symmetric(horizontal=10)  # Reduz a margem horizontal
                 )
                 
                 self.tarefas_list.controls.append(centered_row)
@@ -256,16 +285,45 @@ class TarefaView:
         )
         tarefa_row.update()
 
+    def abrir_edicao_data(self, e, tarefa):
+        """Abre o calendário para editar a data da tarefa"""
+        def on_date_selected(e):
+            if e.control.value:
+                nova_data = e.control.value.strftime("%Y-%m-%d")
+                self.atualizar_data_tarefa(tarefa.id, nova_data)
+
+        self.page.open(
+            ft.DatePicker(
+                first_date=datetime.date.today(),
+                last_date=datetime.date(2026, 12, 31),
+                on_change=on_date_selected
+            )
+        )
+
+    def atualizar_data_tarefa(self, tarefa_id, nova_data):
+        """Atualiza a data da tarefa no banco de dados"""
+        session = Session()
+        try:
+            tarefa = session.query(Tarefa).filter(Tarefa.id == tarefa_id).first()
+            if tarefa:
+                tarefa.dt = datetime.datetime.strptime(nova_data, "%Y-%m-%d").date()
+                session.commit()
+                self.atualizar_lista_tarefas()
+        except Exception as e:
+            print(f"Erro ao atualizar a data da tarefa: {e}")
+            session.rollback()
+        finally:
+            session.close()
+
     def on_excluir_tarefa_click(self, e):
-        # Coleta todas as tarefas marcadas
+        """Exclui as tarefas marcadas"""
         tarefas_marcadas = []
         for item in self.tarefas_list.controls:
             if isinstance(item.content, ft.Row):
                 row = item.content
-                if len(row.controls) >= 2 and isinstance(row.controls[1], ft.Checkbox):
-                    checkbox = row.controls[1]
-                    if checkbox.value:  # Verifica se a checkbox está marcada
-                        tarefas_marcadas.append(checkbox.data)
+                for control in row.controls:
+                    if isinstance(control, ft.Checkbox) and control.value:  # Verifica se a checkbox está marcada
+                        tarefas_marcadas.append(control.data)
 
         if tarefas_marcadas:
             def confirmar_exclusao(e):
