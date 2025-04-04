@@ -48,7 +48,8 @@ def excluir_tarefa(tarefa_id):
 
     except Exception as e:
         session.rollback()
-        return f"Erro ao excluir tarefa: {e}"
+        print(f"Erro ao excluir tarefa: {e}")
+        return f"Erro ao excluir tarefa {tarefa_id}: {e}"
     finally:
         session.close()
 
